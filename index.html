@@ -3,225 +3,556 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GXO Pool Scoreboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<title>GXO Pool — Fastest Clear</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Barlow+Condensed:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --gxo-orange: #FF3A00;
-    --gxo-orange-glow: rgba(255, 58, 0, 0.35);
-    --gxo-dark: #0A0A0A;
-    --gxo-border: #222;
-    --gxo-text: #F0F0F0;
-    --gxo-muted: #555;
-    --gxo-gold: #FFD700;
-    --gxo-silver: #C0C0C0;
-    --gxo-bronze: #CD7F32;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { height: 100%; overflow: hidden; }
-  body { background: #000; color: var(--gxo-text); font-family: 'Space Mono', monospace; }
+:root {
+  --orange: #FF3A00;
+  --orange-dim: rgba(255,58,0,0.18);
+  --orange-glow: rgba(255,58,0,0.45);
+  --gold: #F5C842;
+  --silver: #B8C4CC;
+  --bronze: #C07B40;
+  --dark: #080808;
+  --surface: rgba(255,255,255,0.03);
+  --surface-2: rgba(255,255,255,0.06);
+  --border: rgba(255,255,255,0.08);
+  --border-hot: rgba(255,58,0,0.35);
+  --text: #F4F4F4;
+  --muted: #4A4A4A;
+  --muted-2: #666;
+}
 
-  .video-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.35; }
-  .video-overlay { position: fixed; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 35%, rgba(0,0,0,0.2) 65%, rgba(0,0,0,0.75) 100%); z-index: 0; pointer-events: none; }
-  .video-fallback { position: fixed; inset: 0; z-index: 0; background: radial-gradient(ellipse at 30% 20%, rgba(26,122,60,0.12) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(255,58,0,0.07) 0%, transparent 50%), #0A0A0A; display: none; }
-  .video-fallback.show { display: block; }
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { height:100%; overflow:hidden; background:#000; }
+body { font-family:'DM Mono',monospace; color:var(--text); }
 
-  .app { position: relative; z-index: 1; height: 100vh; display: flex; flex-direction: column; padding: 16px 28px; overflow: hidden; }
+/* ── Video layer ── */
+#videoBg {
+  position:fixed; inset:0; width:100%; height:100%;
+  object-fit:cover; z-index:0; opacity:0.28;
+  filter: saturate(0.6) brightness(0.7);
+}
+.vignette {
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background: radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(0,0,0,0.75) 100%);
+}
+.scanlines {
+  position:fixed; inset:0; z-index:1; pointer-events:none; opacity:0.025;
+  background: repeating-linear-gradient(0deg, #fff 0px, #fff 1px, transparent 1px, transparent 3px);
+}
+.video-fallback {
+  position:fixed; inset:0; z-index:0; display:none;
+  background: radial-gradient(ellipse at 20% 30%, rgba(255,58,0,0.08) 0%, transparent 55%),
+              radial-gradient(ellipse at 80% 70%, rgba(255,58,0,0.05) 0%, transparent 45%), #080808;
+}
+.video-fallback.show { display:block; }
 
-  .header-bar { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; padding-bottom: 10px; }
-  .header-left { display: flex; align-items: center; gap: 16px; }
-  .gxo-logo { font-family: 'Bebas Neue', sans-serif; font-size: 44px; letter-spacing: 10px; color: var(--gxo-orange); text-shadow: 0 0 30px var(--gxo-orange-glow); line-height: 1; }
-  .header-sep { width: 2px; height: 28px; background: var(--gxo-orange); opacity: 0.4; }
-  .header-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 6px; color: var(--gxo-text); }
-  .header-tag { font-size: 8px; letter-spacing: 4px; text-transform: uppercase; color: var(--gxo-muted); }
-  .live-clock { font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 3px; color: var(--gxo-text); opacity: 0.7; }
-  .live-date { font-size: 9px; letter-spacing: 3px; color: var(--gxo-muted); text-align: right; }
-  .divider { height: 2px; background: linear-gradient(90deg, transparent, var(--gxo-orange), transparent); flex-shrink: 0; }
+/* ── App shell ── */
+.app {
+  position:relative; z-index:10;
+  height:100vh; display:flex; flex-direction:column;
+  padding:20px 32px 12px;
+}
 
-  .podium { display: flex; justify-content: center; align-items: flex-end; gap: 12px; padding: 16px 0 12px; flex-shrink: 0; }
-  .podium-slot { display: flex; flex-direction: column; align-items: center; width: 200px; transition: all 0.4s; }
-  .podium-slot.empty { opacity: 0.15; }
-  .podium-medal { font-size: 28px; margin-bottom: 4px; }
-  .podium-slot.p1 .podium-medal { font-size: 36px; }
-  .podium-name { font-family: 'Bebas Neue', sans-serif; letter-spacing: 3px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-  .podium-slot.p1 .podium-name { font-size: 32px; color: var(--gxo-orange); text-shadow: 0 0 20px var(--gxo-orange-glow); }
-  .podium-slot.p2 .podium-name { font-size: 24px; color: var(--gxo-silver); }
-  .podium-slot.p3 .podium-name { font-size: 24px; color: var(--gxo-bronze); }
-  .podium-score { font-family: 'Bebas Neue', sans-serif; letter-spacing: 2px; margin-top: 2px; }
-  .podium-slot.p1 .podium-score { font-size: 52px; color: var(--gxo-orange); text-shadow: 0 0 30px var(--gxo-orange-glow); }
-  .podium-slot.p2 .podium-score { font-size: 38px; color: var(--gxo-silver); }
-  .podium-slot.p3 .podium-score { font-size: 38px; color: var(--gxo-bronze); }
-  .podium-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; margin-top: 2px; }
-  .podium-slot.p1 .podium-label { color: rgba(255,58,0,0.6); }
-  .podium-slot.p2 .podium-label { color: rgba(192,192,192,0.5); }
-  .podium-slot.p3 .podium-label { color: rgba(205,127,50,0.5); }
-  .podium-block { width: 100%; border-top: 3px solid; margin-top: 6px; background: rgba(255,255,255,0.03); backdrop-filter: blur(6px); }
-  .podium-slot.p1 .podium-block { height: 60px; border-color: var(--gxo-gold); background: rgba(255,215,0,0.06); }
-  .podium-slot.p2 .podium-block { height: 40px; border-color: var(--gxo-silver); background: rgba(192,192,192,0.04); }
-  .podium-slot.p3 .podium-block { height: 28px; border-color: var(--gxo-bronze); background: rgba(205,127,50,0.04); }
+/* ── Header ── */
+.header {
+  display:flex; align-items:stretch; justify-content:space-between;
+  flex-shrink:0; padding-bottom:16px; gap:20px;
+}
+.header-left { display:flex; align-items:center; gap:20px; }
 
-  .list-header { display: flex; padding: 8px 16px; font-family: 'Bebas Neue', sans-serif; font-size: 12px; letter-spacing: 4px; color: var(--gxo-muted); flex-shrink: 0; }
-  .list-header .col-rank { width: 50px; }
-  .list-header .col-name { flex: 1; }
-  .list-header .col-time { text-align: right; min-width: 100px; }
-  .list-wrap { flex: 1; overflow: hidden; position: relative; min-height: 0; }
-  .list-inner { display: flex; flex-direction: column; position: absolute; width: 100%; transition: transform 0.6s ease-in-out; }
-  .list-row { display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); background: rgba(10,10,10,0.5); backdrop-filter: blur(4px); flex-shrink: 0; transition: background 0.3s; }
-  .list-row.highlight { background: rgba(255,58,0,0.2) !important; animation: rowFlash 1.5s ease-out; }
-  @keyframes rowFlash { 0% { background: rgba(255,58,0,0.5); } 100% { background: rgba(255,58,0,0.2); } }
-  .list-rank { font-family: 'Bebas Neue', sans-serif; font-size: 22px; min-width: 50px; text-align: center; color: var(--gxo-muted); }
-  .list-name { flex: 1; font-weight: 700; font-size: 15px; letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .list-date { font-size: 9px; color: var(--gxo-muted); margin-left: 12px; white-space: nowrap; }
-  .list-time { font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 2px; text-align: right; min-width: 100px; margin-left: 12px; }
+.logo-block { position:relative; }
+.logo-text {
+  font-family:'Bebas Neue',sans-serif; font-size:52px;
+  letter-spacing:12px; color:var(--orange); line-height:1;
+  text-shadow: 0 0 40px var(--orange-glow), 0 0 80px rgba(255,58,0,0.2);
+}
+.logo-underline {
+  width:100%; height:2px; margin-top:2px;
+  background: linear-gradient(90deg, var(--orange), transparent);
+}
 
-  .btn-delete-sm { background: none; border: 1px solid var(--gxo-border); color: var(--gxo-muted); font-size: 10px; padding: 3px 7px; cursor: pointer; margin-left: 10px; font-family: 'Space Mono', monospace; }
-  .btn-delete-sm:hover { color: #FF1744; border-color: #FF1744; }
+.header-divider { width:1px; background:var(--border-hot); opacity:0.5; align-self:stretch; }
 
-  .status-bar { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 0 0; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--gxo-muted); flex-shrink: 0; }
-  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #FF1744; }
-  .status-dot.connected { background: #00C853; box-shadow: 0 0 6px rgba(0,200,83,0.5); }
+.title-block { display:flex; flex-direction:column; justify-content:center; gap:4px; }
+.title-main {
+  font-family:'Barlow Condensed',sans-serif; font-weight:600;
+  font-size:20px; letter-spacing:5px; text-transform:uppercase; color:var(--text);
+}
+.title-sub {
+  font-size:9px; letter-spacing:4px; text-transform:uppercase; color:var(--muted-2);
+  font-family:'Barlow Condensed',sans-serif; font-weight:300;
+}
 
-  .admin-toggle { position: fixed; top: 12px; right: 12px; font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1px; padding: 6px 14px; background: rgba(20,20,20,0.7); backdrop-filter: blur(8px); color: var(--gxo-muted); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; z-index: 50; }
-  .admin-toggle:hover { border-color: var(--gxo-orange); color: var(--gxo-text); }
-  .admin-toggle.logged-in { border-color: var(--gxo-orange); color: var(--gxo-orange); }
+.header-right { display:flex; flex-direction:column; align-items:flex-end; justify-content:center; gap:4px; }
+.clock {
+  font-family:'Bebas Neue',sans-serif; font-size:42px;
+  letter-spacing:4px; color:var(--text); opacity:0.8; line-height:1;
+  font-variant-numeric: tabular-nums;
+}
+.clock-date { font-size:9px; letter-spacing:3px; color:var(--muted-2); text-transform:uppercase; }
 
-  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center; }
-  .modal-bg.show { display: flex; }
-  .modal { background: rgba(20,20,20,0.92); backdrop-filter: blur(16px); border: 1px solid rgba(255,58,0,0.2); padding: 36px; width: 320px; text-align: center; }
-  .modal h2 { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 6px; color: var(--gxo-orange); margin-bottom: 20px; }
-  .modal input { width: 100%; font-family: 'Space Mono', monospace; font-size: 14px; padding: 10px 14px; background: var(--gxo-dark); color: var(--gxo-text); border: 1px solid var(--gxo-border); outline: none; margin-bottom: 14px; text-align: center; }
-  .modal input:focus { border-color: var(--gxo-orange); }
-  .modal-error { color: #FF1744; font-size: 11px; margin-bottom: 10px; min-height: 14px; }
-  .btn-login { font-family: 'Bebas Neue', sans-serif; font-size: 17px; letter-spacing: 4px; padding: 10px 36px; background: var(--gxo-orange); color: #fff; border: none; cursor: pointer; width: 100%; }
-  .btn-login:hover { background: #e63300; }
-  .modal-close { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--gxo-muted); background: none; border: none; cursor: pointer; margin-top: 14px; }
+/* ── Stat pills ── */
+.stat-bar {
+  display:flex; gap:8px; flex-shrink:0; padding-bottom:12px;
+}
+.stat-pill {
+  display:flex; align-items:center; gap:8px;
+  padding:6px 14px; background:var(--surface); border:1px solid var(--border);
+  font-size:9px; letter-spacing:3px; text-transform:uppercase; color:var(--muted-2);
+}
+.stat-pill strong {
+  font-family:'Bebas Neue',sans-serif; font-size:18px;
+  letter-spacing:2px; color:var(--text);
+}
 
-  .admin-panel { display: none; background: rgba(20,20,20,0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255,58,0,0.2); padding: 14px 18px; flex-shrink: 0; margin: 8px 0; }
-  .admin-panel.show { display: block; }
-  .admin-title { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 4px; color: var(--gxo-orange); margin-bottom: 8px; }
-  .admin-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: center; }
-  .admin-row input { flex: 1; font-family: 'Space Mono', monospace; font-size: 12px; padding: 8px 10px; background: var(--gxo-dark); color: var(--gxo-text); border: 1px solid var(--gxo-border); outline: none; }
-  .admin-row input:focus { border-color: var(--gxo-orange); }
-  .admin-row input::placeholder { color: var(--gxo-muted); }
-  .admin-row input.time-input { width: 80px; flex: none; text-align: center; letter-spacing: 2px; }
-  .time-sep { font-family: 'Bebas Neue', sans-serif; font-size: 22px; color: var(--gxo-muted); }
-  .btn-admin { font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 3px; padding: 8px 18px; background: var(--gxo-orange); color: #fff; border: none; cursor: pointer; white-space: nowrap; }
-  .btn-admin:hover { background: #e63300; }
-  .btn-clear { font-family: 'Space Mono', monospace; font-size: 9px; padding: 5px 10px; background: none; color: var(--gxo-muted); border: 1px solid var(--gxo-border); cursor: pointer; }
-  .btn-clear:hover { color: #FF1744; border-color: #FF1744; }
-  .sound-toggle { font-family: 'Space Mono', monospace; font-size: 9px; padding: 5px 10px; background: none; color: var(--gxo-muted); border: 1px solid var(--gxo-border); cursor: pointer; }
-  .sound-toggle.on { color: var(--gxo-orange); border-color: var(--gxo-orange); }
+/* ── Divider ── */
+.divider-hot {
+  height:1px; flex-shrink:0;
+  background: linear-gradient(90deg, transparent, var(--orange) 20%, var(--orange) 80%, transparent);
+  box-shadow: 0 0 12px var(--orange-glow);
+}
+.divider-cold {
+  height:1px; flex-shrink:0; background:var(--border);
+}
 
-  .celebration { display: none; position: fixed; inset: 0; z-index: 200; pointer-events: none; justify-content: center; align-items: center; flex-direction: column; }
-  .celebration.show { display: flex; }
-  .celebration-bg { position: absolute; inset: 0; background: rgba(0,0,0,0.6); animation: celebFade 3.5s forwards; }
-  @keyframes celebFade { 0%{opacity:0} 10%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
-  .celeb-text { position: relative; z-index: 1; text-align: center; animation: celebPop 3.5s forwards; }
-  @keyframes celebPop { 0%{opacity:0;transform:scale(0.5)} 15%{opacity:1;transform:scale(1.1)} 25%{transform:scale(1)} 70%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(0.9)} }
-  .celeb-label { font-family: 'Space Mono', monospace; font-size: 14px; letter-spacing: 8px; color: var(--gxo-gold); text-transform: uppercase; }
-  .celeb-name { font-family: 'Bebas Neue', sans-serif; font-size: 90px; letter-spacing: 10px; color: var(--gxo-orange); text-shadow: 0 0 60px var(--gxo-orange-glow), 0 0 120px rgba(255,58,0,0.3); }
-  .celeb-score { font-family: 'Bebas Neue', sans-serif; font-size: 50px; letter-spacing: 4px; color: var(--gxo-gold); text-shadow: 0 0 30px rgba(255,215,0,0.4); }
+/* ── Podium ── */
+.podium-section { flex-shrink:0; padding:12px 0 10px; }
+.podium {
+  display:grid; grid-template-columns:1fr 1.2fr 1fr;
+  gap:8px; align-items:end;
+}
+.podium-slot {
+  display:flex; flex-direction:column; align-items:center;
+  transition:opacity 0.4s;
+}
+.podium-slot.empty { opacity:0.12; }
 
-  .confetti-piece { position: fixed; z-index: 201; pointer-events: none; animation: confettiFall linear forwards; }
-  @keyframes confettiFall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(110vh) rotate(720deg);opacity:0} }
+.podium-card {
+  width:100%; padding:14px 16px 12px;
+  background:var(--surface); border:1px solid var(--border);
+  display:flex; flex-direction:column; align-items:center;
+  position:relative; overflow:hidden;
+}
+.podium-card::before {
+  content:''; position:absolute; inset:0;
+  opacity:0; transition:opacity 0.3s;
+}
+.p1 .podium-card { border-color:rgba(255,215,0,0.25); }
+.p1 .podium-card::before { background:rgba(255,215,0,0.04); opacity:1; }
+.p2 .podium-card { border-color:rgba(184,196,204,0.18); }
+.p2 .podium-card::before { background:rgba(184,196,204,0.03); opacity:1; }
+.p3 .podium-card { border-color:rgba(192,123,64,0.18); }
+.p3 .podium-card::before { background:rgba(192,123,64,0.03); opacity:1; }
 
-  .board-empty { text-align: center; padding: 40px 20px; color: var(--gxo-muted); font-size: 13px; letter-spacing: 2px; width: 100%; }
-  .board-empty .icon { font-size: 40px; margin-bottom: 10px; opacity: 0.25; }
+.podium-rank-line {
+  width:100%; height:3px; margin-bottom:12px;
+  background:var(--border);
+}
+.p1 .podium-rank-line { background:linear-gradient(90deg, transparent, var(--gold), transparent); box-shadow:0 0 10px rgba(245,200,66,0.4); }
+.p2 .podium-rank-line { background:linear-gradient(90deg, transparent, var(--silver), transparent); }
+.p3 .podium-rank-line { background:linear-gradient(90deg, transparent, var(--bronze), transparent); }
 
-  @media (max-width: 600px) {
-    .app { padding: 10px; }
-    .gxo-logo { font-size: 32px; letter-spacing: 6px; }
-    .header-title { font-size: 16px; letter-spacing: 4px; }
-    .live-clock { font-size: 24px; }
-    .podium-slot { width: 120px; }
-    .podium-slot.p1 .podium-name { font-size: 22px; }
-    .podium-slot.p2 .podium-name, .podium-slot.p3 .podium-name { font-size: 18px; }
-    .podium-slot.p1 .podium-score { font-size: 36px; }
-    .podium-slot.p2 .podium-score, .podium-slot.p3 .podium-score { font-size: 28px; }
-    .celeb-name { font-size: 48px; }
-    .celeb-score { font-size: 32px; }
-    .admin-row { flex-wrap: wrap; }
-  }
+.podium-medal { font-size:24px; margin-bottom:6px; line-height:1; }
+.p1 .podium-medal { font-size:32px; }
+
+.podium-name {
+  font-family:'Barlow Condensed',sans-serif; font-weight:700;
+  letter-spacing:2px; text-align:center; text-transform:uppercase;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  max-width:100%;
+}
+.p1 .podium-name { font-size:28px; color:var(--orange); text-shadow:0 0 20px var(--orange-glow); }
+.p2 .podium-name { font-size:20px; color:var(--silver); }
+.p3 .podium-name { font-size:20px; color:var(--bronze); }
+
+.podium-time {
+  font-family:'Bebas Neue',sans-serif; letter-spacing:3px; margin-top:4px;
+  font-variant-numeric: tabular-nums;
+}
+.p1 .podium-time { font-size:48px; color:var(--orange); text-shadow:0 0 25px var(--orange-glow); }
+.p2 .podium-time { font-size:34px; color:var(--silver); }
+.p3 .podium-time { font-size:34px; color:var(--bronze); }
+
+.podium-lbl {
+  font-size:8px; letter-spacing:3px; text-transform:uppercase; color:var(--muted);
+  margin-top:2px; font-family:'Barlow Condensed',sans-serif;
+}
+
+.podium-plinth {
+  width:100%; margin-top:6px;
+  background:var(--surface-2); border-top:2px solid;
+}
+.p1 .podium-plinth { height:52px; border-color:var(--gold); }
+.p2 .podium-plinth { height:34px; border-color:var(--silver); }
+.p3 .podium-plinth { height:22px; border-color:var(--bronze); }
+
+.btn-del {
+  background:none; border:1px solid var(--muted); color:var(--muted);
+  font-family:'DM Mono',monospace; font-size:9px; padding:3px 8px;
+  cursor:pointer; margin-top:8px; letter-spacing:1px;
+  transition:all 0.15s;
+}
+.btn-del:hover { color:#FF1744; border-color:#FF1744; }
+
+/* ── List section ── */
+.list-section { flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+.list-head {
+  display:flex; padding:10px 16px 6px;
+  font-family:'Barlow Condensed',sans-serif; font-size:11px;
+  letter-spacing:4px; color:var(--muted-2); text-transform:uppercase;
+  flex-shrink:0;
+}
+.lh-rank { width:56px; }
+.lh-name { flex:1; }
+.lh-date { width:120px; text-align:right; }
+.lh-time { width:110px; text-align:right; }
+
+.list-viewport { flex:1; overflow:hidden; position:relative; }
+.list-track {
+  position:absolute; width:100%;
+  transition:transform 0.7s cubic-bezier(0.25,0.1,0.25,1);
+}
+
+.list-row {
+  display:flex; align-items:center; padding:9px 16px;
+  border-bottom:1px solid rgba(255,255,255,0.03);
+  background:rgba(8,8,8,0.4); backdrop-filter:blur(2px);
+  transition:background 0.4s; position:relative;
+  overflow:hidden;
+}
+.list-row::before {
+  content:''; position:absolute; left:0; top:0; bottom:0; width:0;
+  background:var(--orange); transition:width 0.4s ease-out; opacity:0.6;
+}
+.list-row.hl { background:rgba(255,58,0,0.15) !important; }
+.list-row.hl::before { width:3px; }
+@keyframes rowPop {
+  0% { background:rgba(255,58,0,0.4); transform:translateX(4px); }
+  100% { background:rgba(255,58,0,0.15); transform:translateX(0); }
+}
+.list-row.hl { animation:rowPop 0.5s ease-out forwards; }
+
+.row-rank {
+  font-family:'Bebas Neue',sans-serif; font-size:20px;
+  width:56px; text-align:center; color:var(--muted-2);
+}
+.row-name {
+  flex:1; font-size:13px; font-weight:500; letter-spacing:0.5px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:16px;
+}
+.row-date { width:120px; text-align:right; font-size:9px; color:var(--muted-2); letter-spacing:1px; }
+.row-time {
+  font-family:'Bebas Neue',sans-serif; font-size:28px;
+  width:110px; text-align:right; letter-spacing:2px; color:var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.board-empty {
+  text-align:center; padding:48px 20px; color:var(--muted-2);
+  font-size:11px; letter-spacing:3px; text-transform:uppercase;
+}
+.board-empty .big { font-size:40px; margin-bottom:12px; opacity:0.2; }
+
+/* ── Footer status ── */
+.footer {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 0 0; flex-shrink:0;
+}
+.status-pill {
+  display:flex; align-items:center; gap:7px;
+  font-size:9px; letter-spacing:3px; text-transform:uppercase; color:var(--muted-2);
+}
+.dot { width:6px; height:6px; border-radius:50%; background:#FF1744; transition:all 0.3s; }
+.dot.on { background:#00C853; box-shadow:0 0 8px rgba(0,200,83,0.6); }
+.footer-brand {
+  font-family:'Barlow Condensed',sans-serif; font-weight:300;
+  font-size:10px; letter-spacing:4px; color:var(--muted);
+  text-transform:uppercase;
+}
+
+/* ── Admin toggle button ── */
+.admin-btn {
+  position:fixed; top:14px; right:14px; z-index:100;
+  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:2px;
+  padding:7px 16px; background:rgba(8,8,8,0.8); backdrop-filter:blur(8px);
+  color:var(--muted-2); border:1px solid rgba(255,255,255,0.1); cursor:pointer;
+  text-transform:uppercase; transition:all 0.2s;
+}
+.admin-btn:hover { border-color:var(--orange); color:var(--text); }
+.admin-btn.active { border-color:var(--orange); color:var(--orange); }
+
+/* ── Login modal ── */
+.modal-bg {
+  display:none; position:fixed; inset:0; z-index:200;
+  background:rgba(0,0,0,0.85); backdrop-filter:blur(4px);
+  justify-content:center; align-items:center;
+}
+.modal-bg.show { display:flex; }
+.modal-box {
+  background:#0E0E0E; border:1px solid var(--border-hot);
+  padding:40px 36px; width:300px; text-align:center;
+}
+.modal-title {
+  font-family:'Bebas Neue',sans-serif; font-size:28px;
+  letter-spacing:8px; color:var(--orange); margin-bottom:24px;
+}
+.modal-box input {
+  width:100%; font-family:'DM Mono',monospace; font-size:13px;
+  padding:11px 14px; background:#0A0A0A; color:var(--text);
+  border:1px solid rgba(255,255,255,0.1); outline:none;
+  text-align:center; letter-spacing:4px; margin-bottom:14px;
+  transition:border-color 0.2s;
+}
+.modal-box input:focus { border-color:var(--orange); }
+.modal-err { color:#FF1744; font-size:10px; letter-spacing:2px; min-height:16px; margin-bottom:10px; }
+.btn-login {
+  font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:5px;
+  padding:11px 0; width:100%; background:var(--orange); color:#fff;
+  border:none; cursor:pointer; transition:background 0.2s;
+}
+.btn-login:hover { background:#e63300; }
+.btn-cancel {
+  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:2px;
+  color:var(--muted-2); background:none; border:none; cursor:pointer;
+  margin-top:14px; text-transform:uppercase;
+}
+
+/* ── Admin panel ── */
+.admin-panel {
+  display:none; flex-shrink:0; margin:10px 0;
+  background:rgba(10,10,10,0.8); backdrop-filter:blur(12px);
+  border:1px solid var(--border-hot); padding:16px 20px;
+}
+.admin-panel.show { display:block; }
+.admin-lbl {
+  font-family:'Barlow Condensed',sans-serif; font-weight:600;
+  font-size:11px; letter-spacing:5px; text-transform:uppercase;
+  color:var(--orange); margin-bottom:10px;
+}
+.admin-inputs { display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+.admin-inputs input {
+  flex:1; font-family:'DM Mono',monospace; font-size:12px;
+  padding:8px 12px; background:#080808; color:var(--text);
+  border:1px solid rgba(255,255,255,0.1); outline:none; transition:border-color 0.2s;
+}
+.admin-inputs input:focus { border-color:var(--orange); }
+.admin-inputs input::placeholder { color:var(--muted); }
+.time-field {
+  width:72px !important; flex:none !important; text-align:center; letter-spacing:3px;
+}
+.time-sep {
+  font-family:'Bebas Neue',sans-serif; font-size:20px;
+  color:var(--muted-2); flex:none;
+}
+.btn-add {
+  font-family:'Bebas Neue',sans-serif; font-size:15px; letter-spacing:4px;
+  padding:8px 20px; background:var(--orange); color:#fff;
+  border:none; cursor:pointer; white-space:nowrap; transition:background 0.2s;
+}
+.btn-add:hover { background:#e63300; }
+.admin-actions { display:flex; gap:8px; justify-content:flex-end; }
+.btn-sm {
+  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:1px;
+  padding:5px 12px; background:none; border:1px solid rgba(255,255,255,0.12);
+  color:var(--muted-2); cursor:pointer; text-transform:uppercase; transition:all 0.15s;
+}
+.btn-sm:hover { color:var(--text); border-color:rgba(255,255,255,0.3); }
+.btn-sm.danger:hover { color:#FF1744; border-color:#FF1744; }
+.btn-sm.sound-on { color:var(--orange); border-color:var(--orange); }
+
+/* ── Celebration ── */
+.celeb {
+  display:none; position:fixed; inset:0; z-index:300;
+  pointer-events:none; justify-content:center; align-items:center;
+}
+.celeb.show { display:flex; }
+.celeb-backdrop {
+  position:absolute; inset:0; background:rgba(0,0,0,0.65);
+  animation:cFade 3.8s forwards;
+}
+@keyframes cFade { 0%{opacity:0} 8%{opacity:1} 65%{opacity:1} 100%{opacity:0} }
+.celeb-inner {
+  position:relative; text-align:center;
+  animation:cPop 3.8s forwards;
+}
+@keyframes cPop {
+  0%{opacity:0;transform:scale(0.4) translateY(30px)}
+  12%{opacity:1;transform:scale(1.06) translateY(0)}
+  20%{transform:scale(0.98)}
+  30%{transform:scale(1)}
+  70%{opacity:1;transform:scale(1)}
+  100%{opacity:0;transform:scale(0.92) translateY(-20px)}
+}
+.celeb-eyebrow {
+  font-family:'Barlow Condensed',sans-serif; font-weight:700;
+  font-size:11px; letter-spacing:10px; text-transform:uppercase;
+  color:var(--gold); margin-bottom:8px;
+  text-shadow:0 0 20px rgba(245,200,66,0.6);
+}
+.celeb-name {
+  font-family:'Bebas Neue',sans-serif; font-size:96px; line-height:0.9;
+  letter-spacing:8px; color:var(--orange);
+  text-shadow:0 0 60px var(--orange-glow), 0 0 120px rgba(255,58,0,0.2);
+}
+.celeb-time {
+  font-family:'Bebas Neue',sans-serif; font-size:54px; letter-spacing:6px;
+  color:var(--gold); text-shadow:0 0 30px rgba(245,200,66,0.4);
+  margin-top:4px;
+}
+.celeb-sub {
+  font-size:10px; letter-spacing:5px; text-transform:uppercase;
+  color:rgba(255,255,255,0.4); margin-top:8px;
+  font-family:'Barlow Condensed',sans-serif;
+}
+
+/* ── Confetti ── */
+.confetti {
+  position:fixed; z-index:301; pointer-events:none;
+  animation:confettiFall linear forwards;
+}
+@keyframes confettiFall {
+  0% { transform:translateY(-20px) rotate(0deg) scale(1); opacity:1; }
+  80% { opacity:1; }
+  100% { transform:translateY(110vh) rotate(900deg) scale(0.5); opacity:0; }
+}
+
+/* ── NEW LEADER pulse on podium #1 ── */
+@keyframes p1Pulse {
+  0%,100% { text-shadow:0 0 20px var(--orange-glow); }
+  50% { text-shadow:0 0 40px var(--orange-glow), 0 0 80px rgba(255,58,0,0.3); }
+}
+.p1-new .podium-name { animation:p1Pulse 1s ease-in-out 3; }
+
+/* ── Responsive ── */
+@media (max-width:640px) {
+  .app { padding:12px 14px 8px; }
+  .logo-text { font-size:36px; letter-spacing:8px; }
+  .title-main { font-size:14px; }
+  .clock { font-size:28px; }
+  .podium { grid-template-columns:1fr 1.15fr 1fr; gap:4px; }
+  .p1 .podium-time { font-size:34px; }
+  .p2 .podium-time, .p3 .podium-time { font-size:24px; }
+  .p1 .podium-name { font-size:20px; }
+  .p2 .podium-name, .p3 .podium-name { font-size:15px; }
+  .celeb-name { font-size:54px; }
+  .celeb-time { font-size:34px; }
+  .stat-bar { display:none; }
+  .row-date { display:none; }
+  .lh-date { display:none; }
+}
 </style>
 </head>
 <body>
 
-<video class="video-bg" id="videoBg" autoplay muted loop playsinline>
+<video id="videoBg" autoplay muted loop playsinline>
   <source src="1.mp4" type="video/mp4">
 </video>
+<div class="vignette"></div>
+<div class="scanlines"></div>
 <div class="video-fallback" id="videoFallback"></div>
-<div class="video-overlay"></div>
 
-<div class="celebration" id="celebration">
-  <div class="celebration-bg"></div>
-  <div class="celeb-text">
-    <div class="celeb-label">&#9733; NEW RECORD &#9733;</div>
+<!-- Celebration overlay -->
+<div class="celeb" id="celeb">
+  <div class="celeb-backdrop"></div>
+  <div class="celeb-inner">
+    <div class="celeb-eyebrow">&#9733; New Record &#9733;</div>
     <div class="celeb-name" id="celebName"></div>
-    <div class="celeb-score" id="celebScore"></div>
+    <div class="celeb-time" id="celebTime"></div>
+    <div class="celeb-sub">Fastest clear</div>
   </div>
 </div>
 
-<button class="admin-toggle" id="adminBtn" onclick="handleAdminClick()">ADMIN</button>
+<button class="admin-btn" id="adminBtn" onclick="handleAdminClick()">ADMIN</button>
 
 <div class="app">
-  <div class="header-bar">
+
+  <!-- Header -->
+  <div class="header">
     <div class="header-left">
-      <div class="gxo-logo">GXO</div>
-      <div class="header-sep"></div>
-      <div>
-        <div class="header-title">Pool — Fastest Clear</div>
-        <div class="header-tag">Logistics at full potential</div>
+      <div class="logo-block">
+        <div class="logo-text">GXO</div>
+        <div class="logo-underline"></div>
+      </div>
+      <div class="header-divider"></div>
+      <div class="title-block">
+        <div class="title-main">Pool — Fastest Clear</div>
+        <div class="title-sub">Logistics at full potential</div>
       </div>
     </div>
-    <div style="text-align:right">
-      <div class="live-clock" id="clock"></div>
-      <div class="live-date" id="dateDisplay"></div>
+    <div class="header-right">
+      <div class="clock" id="clock">00:00:00</div>
+      <div class="clock-date" id="clockDate"></div>
     </div>
   </div>
 
+  <!-- Admin panel -->
   <div class="admin-panel" id="adminPanel">
-    <div class="admin-title">ADD TIME</div>
-    <div class="admin-row">
-      <input type="text" id="addName" placeholder="Player name" maxlength="24" onkeydown="if(event.key==='Enter')document.getElementById('addMins').focus()">
-      <input type="number" id="addMins" class="time-input" placeholder="MM" min="0" max="59" onkeydown="if(event.key==='Enter')document.getElementById('addSecs').focus()">
+    <div class="admin-lbl">Add Time</div>
+    <div class="admin-inputs">
+      <input id="addName" type="text" placeholder="Player name" maxlength="24" onkeydown="if(event.key==='Enter')document.getElementById('addMins').focus()">
+      <input id="addMins" type="number" class="time-field" placeholder="MM" min="0" max="59" onkeydown="if(event.key==='Enter')document.getElementById('addSecs').focus()">
       <span class="time-sep">:</span>
-      <input type="number" id="addSecs" class="time-input" placeholder="SS" min="0" max="59" onkeydown="if(event.key==='Enter')addEntry()">
-      <button class="btn-admin" onclick="addEntry()">ADD</button>
+      <input id="addSecs" type="number" class="time-field" placeholder="SS" min="0" max="59" onkeydown="if(event.key==='Enter')addEntry()">
+      <button class="btn-add" onclick="addEntry()">ADD</button>
     </div>
-    <div style="display:flex;gap:6px;justify-content:flex-end">
-      <button class="sound-toggle" id="soundBtn" onclick="toggleSound()">SOUND: OFF</button>
-      <button class="btn-clear" onclick="if(confirm('Clear ALL times?'))clearAll()">Clear All</button>
-      <button class="btn-clear" onclick="logout()">Log Out</button>
+    <div class="admin-actions">
+      <button class="btn-sm" id="soundBtn" onclick="toggleSound()">Sound: Off</button>
+      <button class="btn-sm danger" onclick="if(confirm('Clear all times?'))clearAll()">Clear All</button>
+      <button class="btn-sm" onclick="logout()">Log Out</button>
     </div>
   </div>
 
-  <div class="divider"></div>
-  <div class="podium" id="podium"></div>
-  <div class="divider"></div>
-
-  <div class="list-header" id="listHeader" style="display:none">
-    <span class="col-rank">RANK</span>
-    <span class="col-name">PLAYER</span>
-    <span class="col-time">TIME</span>
+  <!-- Stat pills -->
+  <div class="stat-bar" id="statBar">
+    <div class="stat-pill">Players <strong id="statPlayers">0</strong></div>
+    <div class="stat-pill">Best <strong id="statBest">—</strong></div>
+    <div class="stat-pill">Avg <strong id="statAvg">—</strong></div>
   </div>
 
-  <div class="list-wrap" id="listWrap">
-    <div class="list-inner" id="listInner"></div>
+  <div class="divider-hot"></div>
+
+  <!-- Podium -->
+  <div class="podium-section">
+    <div class="podium" id="podium"></div>
   </div>
 
-  <div class="status-bar">
-    <div class="status-dot" id="statusDot"></div>
-    <span id="statusText">Connecting...</span>
+  <div class="divider-cold"></div>
+
+  <!-- List -->
+  <div class="list-section">
+    <div class="list-head" id="listHead" style="display:none">
+      <span class="lh-rank">Rank</span>
+      <span class="lh-name">Player</span>
+      <span class="lh-date">Date</span>
+      <span class="lh-time">Time</span>
+    </div>
+    <div class="list-viewport" id="listViewport">
+      <div class="list-track" id="listTrack"></div>
+    </div>
   </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="status-pill">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Connecting…</span>
+    </div>
+    <div class="footer-brand">GXO Warehouse Challenge</div>
+  </div>
+
 </div>
 
+<!-- Login modal -->
 <div class="modal-bg" id="loginModal">
-  <div class="modal">
-    <h2>ADMIN LOGIN</h2>
-    <input type="password" id="passInput" placeholder="Enter password" onkeydown="if(event.key==='Enter')attemptLogin()">
-    <div class="modal-error" id="loginError"></div>
-    <button class="btn-login" onclick="attemptLogin()">LOG IN</button>
-    <button class="modal-close" onclick="closeModal()">cancel</button>
+  <div class="modal-box">
+    <div class="modal-title">Admin Login</div>
+    <input type="password" id="passInput" placeholder="Password" onkeydown="if(event.key==='Enter')attemptLogin()">
+    <div class="modal-err" id="loginErr"></div>
+    <button class="btn-login" onclick="attemptLogin()">Sign In</button><br>
+    <button class="btn-cancel" onclick="closeModal()">Cancel</button>
   </div>
 </div>
 
@@ -229,250 +560,295 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script>
 firebase.initializeApp({
-  apiKey: "AIzaSyCJQ3PImrmZtAUj_wyIRtXD9PMgxVRYgLA",
-  authDomain: "pool-3f162.firebaseapp.com",
-  databaseURL: "https://pool-3f162-default-rtdb.firebaseio.com",
-  projectId: "pool-3f162",
-  storageBucket: "pool-3f162.firebasestorage.app",
-  messagingSenderId: "1009900860801",
-  appId: "1:1009900860801:web:f2631b9eab058076842480"
+  apiKey:"AIzaSyCJQ3PImrmZtAUj_wyIRtXD9PMgxVRYgLA",
+  authDomain:"pool-3f162.firebaseapp.com",
+  databaseURL:"https://pool-3f162-default-rtdb.firebaseio.com",
+  projectId:"pool-3f162",
+  storageBucket:"pool-3f162.firebasestorage.app",
+  messagingSenderId:"1009900860801",
+  appId:"1:1009900860801:web:f2631b9eab058076842480"
 });
 
 const db = firebase.database();
 const scoresRef = db.ref('pool_times');
+const PASS = 'gxo2024';
 
-const ADMIN_PASS = 'gxo2024';
-let isAdmin = false, entries = [], prevTopKey = null, soundOn = false;
-let scrollOffset = 0, scrollTimer = null, highlightKeys = new Set();
+let isAdmin = false, entries = [], prevTopKey = null;
+let soundOn = false, hlKeys = new Set();
+let scrollOffset = 0, scrollDir = 1, scrollTimer = null;
 
-// ── Helpers ──
-function toSeconds(m, s) { return (parseInt(m)||0) * 60 + (parseInt(s)||0); }
-function fmtTime(t) { return Math.floor(t/60) + ':' + String(t%60).padStart(2,'0'); }
-function escHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+// ── Utils ──
+const toSecs = (m,s) => (parseInt(m)||0)*60+(parseInt(s)||0);
+const fmtTime = t => `${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`;
+const esc = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
 
-// ── Audio ──
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function playBallSound() {
-  if (!soundOn) return;
-  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
-  o.connect(g); g.connect(audioCtx.destination);
-  o.type='square';
-  o.frequency.setValueAtTime(600, audioCtx.currentTime);
-  o.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime+0.08);
-  g.gain.setValueAtTime(0.25, audioCtx.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.12);
-  o.start(); o.stop(audioCtx.currentTime+0.12);
+// ── Audio context ──
+let actx;
+function getACtx() {
+  if (!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+  return actx;
 }
-function playCelebSound() {
+function beep(freq, type, vol, dur, t0) {
+  const ctx = getACtx();
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.connect(g); g.connect(ctx.destination);
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(0.001, t0+dur);
+  o.start(t0); o.stop(t0+dur);
+}
+function playAdd() {
   if (!soundOn) return;
-  [392,523,659,784,1047].forEach((freq,i) => {
-    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
-    o.connect(g); g.connect(audioCtx.destination);
-    o.type='triangle'; o.frequency.value=freq;
-    g.gain.setValueAtTime(0, audioCtx.currentTime+i*0.1);
-    g.gain.linearRampToValueAtTime(0.22, audioCtx.currentTime+i*0.1+0.05);
-    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+i*0.1+0.4);
-    o.start(audioCtx.currentTime+i*0.1); o.stop(audioCtx.currentTime+i*0.1+0.4);
+  const ctx = getACtx(), now = ctx.currentTime;
+  beep(660,'square',0.15,0.1,now);
+  beep(880,'square',0.12,0.08,now+0.08);
+}
+function playRecord() {
+  if (!soundOn) return;
+  const ctx = getACtx(), now = ctx.currentTime;
+  [392,523,659,784,1047,1319].forEach((f,i) => {
+    beep(f,'triangle',0.18,0.5,now+i*0.1);
   });
 }
 function toggleSound() {
-  soundOn=!soundOn;
-  const btn=document.getElementById('soundBtn');
-  btn.textContent='SOUND: '+(soundOn?'ON':'OFF');
-  btn.classList.toggle('on',soundOn);
-  if(soundOn) audioCtx.resume();
+  soundOn = !soundOn;
+  const btn = document.getElementById('soundBtn');
+  btn.textContent = `Sound: ${soundOn?'On':'Off'}`;
+  btn.classList.toggle('sound-on', soundOn);
+  if (soundOn) getACtx().resume();
 }
 
 // ── Confetti ──
 function spawnConfetti() {
-  const colors=['#FF3A00','#FFD700','#1A7A3C','#2244CC','#AA1111','#FF6B00','#8B008B','#C0C0C0','#FFF'];
-  for(let i=0;i<60;i++){
-    const el=document.createElement('div'); el.className='confetti-piece';
-    const sz=6+Math.random()*8;
-    el.style.cssText=`left:${Math.random()*100}vw;top:-20px;width:${sz}px;height:${sz}px;background:${colors[Math.floor(Math.random()*colors.length)]};border-radius:${Math.random()>0.5?'50%':'0'};animation-duration:${2+Math.random()*2}s;animation-delay:${Math.random()*1.5}s`;
+  const colors = ['#FF3A00','#F5C842','#1A7A3C','#2244CC','#C07B40','#FF6B00','#B8C4CC'];
+  for (let i = 0; i < 80; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti';
+    const sz = 5 + Math.random()*9;
+    const isPill = Math.random() > 0.6;
+    el.style.cssText = `
+      left:${Math.random()*100}vw; top:-20px;
+      width:${sz}px; height:${isPill?sz*2.5:sz}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      border-radius:${isPill?'2px':'50%'};
+      animation-duration:${2.2+Math.random()*2.2}s;
+      animation-delay:${Math.random()*1.8}s;
+    `;
     document.body.appendChild(el);
-    setTimeout(()=>el.remove(),5000);
+    setTimeout(() => el.remove(), 6000);
   }
 }
-function showCelebration(name, secs) {
-  document.getElementById('celebName').textContent=name;
-  document.getElementById('celebScore').textContent=fmtTime(secs);
-  const cel=document.getElementById('celebration');
-  cel.classList.add('show'); playCelebSound(); spawnConfetti();
-  setTimeout(()=>cel.classList.remove('show'),3500);
+function celebrate(name, secs) {
+  document.getElementById('celebName').textContent = name;
+  document.getElementById('celebTime').textContent = fmtTime(secs);
+  const el = document.getElementById('celeb');
+  el.classList.add('show');
+  playRecord();
+  spawnConfetti();
+  setTimeout(() => el.classList.remove('show'), 3800);
 }
 
 // ── Clock ──
-function updateClock() {
-  const now=new Date();
-  document.getElementById('clock').textContent=now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  document.getElementById('dateDisplay').textContent=now.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short',year:'numeric'});
+function tick() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('clockDate').textContent =
+    now.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short',year:'numeric'});
 }
-updateClock(); setInterval(updateClock,1000);
+tick(); setInterval(tick, 1000);
 
 // ── Firebase ──
-scoresRef.on('value', (snapshot) => {
-  const oldKeys=new Set(entries.map(e=>e.key));
-  entries=[];
-  const data=snapshot.val();
-  if(data) Object.keys(data).forEach(key=>entries.push({key,...data[key]}));
+scoresRef.on('value', snap => {
+  const oldKeys = new Set(entries.map(e=>e.key));
+  entries = [];
+  const data = snap.val();
+  if (data) Object.keys(data).forEach(k => entries.push({key:k,...data[k]}));
 
-  highlightKeys=new Set();
-  entries.forEach(e=>{ if(!oldKeys.has(e.key)) highlightKeys.add(e.key); });
+  hlKeys = new Set();
+  entries.forEach(e => { if (!oldKeys.has(e.key)) hlKeys.add(e.key); });
 
-  // Fastest (lowest seconds) = #1
-  const sorted=[...entries].sort((a,b)=>a.totalSecs-b.totalSecs);
-  const newTopKey=sorted.length>0?sorted[0].key:null;
-  if(newTopKey && newTopKey!==prevTopKey && prevTopKey!==null && highlightKeys.has(newTopKey))
-    showCelebration(sorted[0].name, sorted[0].totalSecs);
-  prevTopKey=newTopKey;
+  const sorted = [...entries].sort((a,b) => a.totalSecs - b.totalSecs);
+  const topKey = sorted[0]?.key || null;
+  if (topKey && topKey !== prevTopKey && prevTopKey !== null && hlKeys.has(topKey))
+    celebrate(sorted[0].name, sorted[0].totalSecs);
+  prevTopKey = topKey;
 
-  if(highlightKeys.size>0) playBallSound();
-  setStatus(true); render();
-  setTimeout(()=>{ highlightKeys.clear(); },2000);
-}, ()=>setStatus(false));
+  if (hlKeys.size) playAdd();
+  setStatus(true);
+  render(sorted);
+  setTimeout(() => { hlKeys.clear(); }, 2000);
+}, () => setStatus(false));
 
-function setStatus(connected) {
-  document.getElementById('statusDot').classList.toggle('connected',connected);
-  document.getElementById('statusText').textContent=connected
-    ?'Live \u2022 '+entries.length+' player'+(entries.length!==1?'s':'')
-    :'Disconnected';
+function setStatus(ok) {
+  document.getElementById('statusDot').classList.toggle('on', ok);
+  document.getElementById('statusText').textContent = ok
+    ? `Live · ${entries.length} player${entries.length!==1?'s':''}`
+    : 'Disconnected';
+}
+
+// ── Stats ──
+function updateStats(sorted) {
+  document.getElementById('statPlayers').textContent = sorted.length || '0';
+  document.getElementById('statBest').textContent = sorted[0] ? fmtTime(sorted[0].totalSecs) : '—';
+  if (sorted.length > 1) {
+    const avg = Math.round(sorted.reduce((s,e)=>s+e.totalSecs,0) / sorted.length);
+    document.getElementById('statAvg').textContent = fmtTime(avg);
+  } else {
+    document.getElementById('statAvg').textContent = '—';
+  }
 }
 
 // ── Admin ──
 function handleAdminClick() {
-  if(isAdmin){ document.getElementById('adminPanel').classList.toggle('show'); }
-  else {
+  if (isAdmin) {
+    document.getElementById('adminPanel').classList.toggle('show');
+  } else {
     document.getElementById('loginModal').classList.add('show');
-    document.getElementById('passInput').value='';
-    document.getElementById('loginError').textContent='';
-    setTimeout(()=>document.getElementById('passInput').focus(),100);
+    document.getElementById('passInput').value = '';
+    document.getElementById('loginErr').textContent = '';
+    setTimeout(() => document.getElementById('passInput').focus(), 100);
   }
 }
 function attemptLogin() {
-  if(document.getElementById('passInput').value===ADMIN_PASS){
-    isAdmin=true;
-    document.getElementById('loginModal').classList.remove('show');
+  if (document.getElementById('passInput').value === PASS) {
+    isAdmin = true;
+    closeModal();
     document.getElementById('adminPanel').classList.add('show');
-    document.getElementById('adminBtn').classList.add('logged-in');
-    document.getElementById('adminBtn').textContent='ADMIN \u2713';
-    render();
+    document.getElementById('adminBtn').classList.add('active');
+    document.getElementById('adminBtn').textContent = 'ADMIN ✓';
+    render([...entries].sort((a,b)=>a.totalSecs-b.totalSecs));
   } else {
-    document.getElementById('loginError').textContent='Wrong password';
-    document.getElementById('passInput').value='';
+    document.getElementById('loginErr').textContent = 'Incorrect password';
+    document.getElementById('passInput').value = '';
     document.getElementById('passInput').focus();
   }
 }
 function logout() {
-  isAdmin=false;
+  isAdmin = false;
   document.getElementById('adminPanel').classList.remove('show');
-  document.getElementById('adminBtn').classList.remove('logged-in');
-  document.getElementById('adminBtn').textContent='ADMIN';
-  render();
+  document.getElementById('adminBtn').classList.remove('active');
+  document.getElementById('adminBtn').textContent = 'ADMIN';
+  render([...entries].sort((a,b)=>a.totalSecs-b.totalSecs));
 }
 function closeModal() { document.getElementById('loginModal').classList.remove('show'); }
 
 function addEntry() {
-  const nameEl=document.getElementById('addName');
-  const minsEl=document.getElementById('addMins');
-  const secsEl=document.getElementById('addSecs');
-  const name=nameEl.value.trim();
-  const mins=parseInt(minsEl.value);
-  const secs=parseInt(secsEl.value);
-  if(!name){ alert('Enter a player name'); nameEl.focus(); return; }
-  if(isNaN(mins)||mins<0){ alert('Enter valid minutes'); minsEl.focus(); return; }
-  if(isNaN(secs)||secs<0||secs>59){ alert('Enter valid seconds (0–59)'); secsEl.focus(); return; }
-  const totalSecs=toSeconds(mins,secs);
-  if(totalSecs<=0){ alert('Time must be greater than 0'); minsEl.focus(); return; }
+  const nameEl = document.getElementById('addName');
+  const mEl = document.getElementById('addMins');
+  const sEl = document.getElementById('addSecs');
+  const name = nameEl.value.trim();
+  const m = parseInt(mEl.value), s = parseInt(sEl.value);
+  if (!name) { alert('Enter a player name'); nameEl.focus(); return; }
+  if (isNaN(m)||m<0) { alert('Enter valid minutes'); mEl.focus(); return; }
+  if (isNaN(s)||s<0||s>59) { alert('Enter seconds 0–59'); sEl.focus(); return; }
+  const total = toSecs(m,s);
+  if (total <= 0) { alert('Time must be greater than 0'); mEl.focus(); return; }
   scoresRef.push({
-    name, totalSecs,
+    name, totalSecs: total,
     date: new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})
-  }).then(()=>{ nameEl.value=''; minsEl.value=''; secsEl.value=''; nameEl.focus(); })
-    .catch(err=>alert('Save failed: '+err.message));
+  }).then(() => {
+    nameEl.value=''; mEl.value=''; sEl.value=''; nameEl.focus();
+  }).catch(err => alert('Save error: '+err.message));
 }
-function deleteEntry(key) { if(confirm('Delete this time?')) scoresRef.child(key).remove(); }
+function deleteEntry(key) { if (confirm('Delete this entry?')) scoresRef.child(key).remove(); }
 function clearAll() { scoresRef.remove(); }
 
 // ── Render ──
-function render() {
-  const sorted=[...entries].sort((a,b)=>a.totalSecs-b.totalSecs);
+function render(sorted) {
+  if (!sorted) sorted = [...entries].sort((a,b)=>a.totalSecs-b.totalSecs);
+  updateStats(sorted);
   renderPodium(sorted.slice(0,3));
-  renderList(sorted.slice(3),3);
-  startAutoScroll();
+  renderList(sorted.slice(3), 3);
+  resetScroll();
 }
 
 function renderPodium(top3) {
-  const podium=document.getElementById('podium');
-  const slots=[top3[1]||null, top3[0]||null, top3[2]||null];
-  const classes=['p2','p1','p3'];
-  const medals=['\uD83E\uDD48','\uD83E\uDD47','\uD83E\uDD49'];
-  podium.innerHTML=slots.map((p,i)=>{
-    if(!p) return `<div class="podium-slot ${classes[i]} empty"><div class="podium-medal">${medals[i]}</div><div class="podium-name">---</div><div class="podium-score">-:--</div><div class="podium-block"></div></div>`;
-    return `<div class="podium-slot ${classes[i]}">
-      <div class="podium-medal">${medals[i]}</div>
-      <div class="podium-name">${escHtml(p.name)}</div>
-      <div class="podium-score">${fmtTime(p.totalSecs)}</div>
-      <div class="podium-label">fastest clear</div>
-      <div class="podium-block"></div>
-      ${isAdmin?`<button class="btn-delete-sm" onclick="deleteEntry('${p.key}')" style="margin-top:4px">\u2715</button>`:''}
+  const order = [top3[1]||null, top3[0]||null, top3[2]||null];
+  const cls = ['p2','p1','p3'];
+  const medals = ['\uD83E\uDD48','\uD83E\uDD47','\uD83E\uDD49'];
+  const pNames = ['2nd Place','1st Place','3rd Place'];
+
+  document.getElementById('podium').innerHTML = order.map((p,i) => {
+    const isEmpty = !p;
+    return `<div class="podium-slot ${cls[i]}${isEmpty?' empty':''}">
+      <div class="podium-card">
+        <div class="podium-rank-line"></div>
+        <div class="podium-medal">${medals[i]}</div>
+        <div class="podium-name">${isEmpty?'---':esc(p.name)}</div>
+        <div class="podium-time">${isEmpty?'-:--':fmtTime(p.totalSecs)}</div>
+        <div class="podium-lbl">${pNames[i]}</div>
+        ${p&&isAdmin?`<button class="btn-del" onclick="deleteEntry('${p.key}')">&#x2715; Remove</button>`:''}
+      </div>
+      <div class="podium-plinth"></div>
     </div>`;
   }).join('');
 }
 
 function renderList(rest, startRank) {
-  const listInner=document.getElementById('listInner');
-  const listHeader=document.getElementById('listHeader');
-  if(rest.length===0){
-    listHeader.style.display='none';
-    listInner.innerHTML=entries.length===0?`<div class="board-empty"><div class="icon">&#9899;</div>No times yet — rack up and go!</div>`:'';
+  const head = document.getElementById('listHead');
+  const track = document.getElementById('listTrack');
+
+  if (!rest.length) {
+    head.style.display = 'none';
+    track.innerHTML = entries.length === 0
+      ? `<div class="board-empty"><div class="big">&#9900;</div>No times yet — rack up &amp; go!</div>`
+      : '';
     return;
   }
-  listHeader.style.display='flex';
-  listInner.innerHTML=rest.map((entry,i)=>{
-    const rank=startRank+i+1;
-    const hl=highlightKeys.has(entry.key)?' highlight':'';
-    const del=isAdmin?`<button class="btn-delete-sm" onclick="deleteEntry('${entry.key}')">\u2715</button>`:'';
+  head.style.display = 'flex';
+  track.innerHTML = rest.map((e,i) => {
+    const rank = startRank + i + 1;
+    const hl = hlKeys.has(e.key) ? ' hl' : '';
+    const del = isAdmin ? `<button class="btn-del" onclick="deleteEntry('${e.key}')" style="margin-left:10px">&#x2715;</button>` : '';
     return `<div class="list-row${hl}">
-      <div class="list-rank">${rank}</div>
-      <div class="list-name">${escHtml(entry.name)}</div>
-      <div class="list-date">${entry.date||''}</div>
-      <div class="list-time">${fmtTime(entry.totalSecs)}</div>
+      <div class="row-rank">${rank}</div>
+      <div class="row-name">${esc(e.name)}</div>
+      <div class="row-date">${e.date||''}</div>
+      <div class="row-time">${fmtTime(e.totalSecs)}</div>
       ${del}
     </div>`;
   }).join('');
 }
 
 // ── Auto-scroll ──
-function startAutoScroll() {
-  clearInterval(scrollTimer); scrollOffset=0;
-  const wrap=document.getElementById('listWrap');
-  const inner=document.getElementById('listInner');
-  inner.style.transform='translateY(0)';
-  requestAnimationFrame(()=>{
-    const wrapH=wrap.offsetHeight, innerH=inner.scrollHeight;
-    if(innerH<=wrapH||wrapH<=0) return;
-    const maxScroll=innerH-wrapH;
-    let direction=1, pauseCount=0;
-    const ROW_HEIGHT=inner.firstChild?inner.firstChild.offsetHeight:44;
-    scrollTimer=setInterval(()=>{
-      if(pauseCount>0){ pauseCount--; return; }
-      scrollOffset+=ROW_HEIGHT*direction;
-      if(scrollOffset>=maxScroll){ scrollOffset=maxScroll; direction=-1; pauseCount=4; }
-      else if(scrollOffset<=0){ scrollOffset=0; direction=1; pauseCount=4; }
-      inner.style.transform=`translateY(-${scrollOffset}px)`;
-    },2000);
+function resetScroll() {
+  clearInterval(scrollTimer);
+  scrollOffset = 0; scrollDir = 1;
+  const track = document.getElementById('listTrack');
+  track.style.transform = 'translateY(0)';
+  requestAnimationFrame(() => {
+    const vp = document.getElementById('listViewport');
+    const vpH = vp.offsetHeight, tH = track.scrollHeight;
+    if (tH <= vpH || vpH <= 0) return;
+    const maxScroll = tH - vpH;
+    const rowH = track.firstChild ? track.firstChild.offsetHeight : 42;
+    let paused = 0;
+    scrollTimer = setInterval(() => {
+      if (paused > 0) { paused--; return; }
+      scrollOffset += rowH * scrollDir;
+      if (scrollOffset >= maxScroll) { scrollOffset = maxScroll; scrollDir = -1; paused = 5; }
+      else if (scrollOffset <= 0) { scrollOffset = 0; scrollDir = 1; paused = 5; }
+      track.style.transform = `translateY(-${scrollOffset}px)`;
+    }, 2200);
   });
 }
 
-window.addEventListener('resize',render);
+window.addEventListener('resize', () => render());
 
-const video=document.getElementById('videoBg');
-video.play().catch(()=>{ video.style.display='none'; document.getElementById('videoFallback').classList.add('show'); });
+// ── Video fallback ──
+const vid = document.getElementById('videoBg');
+vid.play().catch(() => {
+  vid.style.display = 'none';
+  document.getElementById('videoFallback').classList.add('show');
+});
 
-let cursorTimer;
-document.addEventListener('mousemove',()=>{
-  document.body.style.cursor='default'; clearTimeout(cursorTimer);
-  cursorTimer=setTimeout(()=>{ document.body.style.cursor='none'; },3000);
+// ── Cursor hide on inactivity ──
+let cursorHide;
+document.addEventListener('mousemove', () => {
+  document.body.style.cursor = 'default';
+  clearTimeout(cursorHide);
+  cursorHide = setTimeout(() => { document.body.style.cursor = 'none'; }, 4000);
 });
 
 render();
